@@ -1,0 +1,14 @@
+
+
+
+@echo off
+echo Registering CamMasterComTest.dll...
+echo.
+
+cd /d "%~dp0"
+"C:\Windows\Microsoft.NET\Framework\v4.0.30319\regasm.exe" "CamMasterComTest.dll" /codebase /tlb
+
+echo.
+pause
+
+
