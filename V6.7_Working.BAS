@@ -1,0 +1,329 @@
+Option Explicit
+
+Sub Main()
+
+    Dim CAM
+    Set CAM = New CAMMaster.Tool
+
+    Dim maxLayers
+    maxLayers = 255
+
+    ' ===================== USER INPUT =====================
+    Dim folderPath
+    folderPath = InputBox("Enter folder path containing ZIP files:", _
+                          "ZIP Import Folder", "C:\Users\varni\Downloads\Data")
+
+    If Trim(folderPath) = "" Then
+        MsgBox "No folder selected. Exiting."
+        Exit Sub
+    End If
+
+    Dim perRow
+    perRow = 4
+
+    Dim spacingX, spacingY
+    spacingX = 300
+    spacingY = 300
+    ' =====================================================
+
+
+    ' ===================== LOAD ZIP FILES =====================
+    Dim fso, fld, f
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    On Error Resume Next
+    Set fld = fso.GetFolder(folderPath)
+    If Err.Number <> 0 Then
+        MsgBox "Folder not found."
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    Dim zipFiles
+    Set zipFiles = CreateObject("Scripting.Dictionary")
+
+    Dim fileCount
+    fileCount = 0
+
+    For Each f In fld.Files
+        If LCase(fso.GetExtensionName(f.Name)) = "zip" Then
+            fileCount = fileCount + 1
+            zipFiles.Add CStr(fileCount), f.Path
+        End If
+    Next
+
+    If fileCount = 0 Then
+        MsgBox "No ZIP files found."
+        Exit Sub
+    End If
+
+
+    ' ===================== IMPORT + GRID MOVE =====================
+    Dim importIndex
+    importIndex = 0
+
+    Dim beforeMax, blockStart, blockEnd
+    Dim j, L, key
+
+    For Each key In zipFiles.Keys
+
+        importIndex = importIndex + 1
+
+        ' Find last used layer before import
+        beforeMax = 0
+        For j = 1 To maxLayers
+            If Trim(CAM.LayerName(j)) <> "" Then
+                beforeMax = j
+            End If
+        Next
+
+        ' Import ZIP
+        CAM.ImportZip "Zip=" & zipFiles(key)
+
+        ' Detect newly added layers
+        blockStart = 0
+        blockEnd = 0
+
+        For j = beforeMax + 1 To maxLayers
+
+            If Trim(CAM.LayerName(j)) <> "" Then
+
+                If blockStart = 0 Then
+                    blockStart = j
+                End If
+
+                blockEnd = j
+
+            Else
+
+                If blockStart <> 0 Then
+                    Exit For
+                End If
+
+            End If
+
+        Next
+
+        If blockStart = 0 Then
+            GoTo SkipThisZip
+        End If
+
+        ' Calculate grid position
+        Dim idx0, row, col
+        Dim moveX, moveY
+
+        idx0 = importIndex - 1
+        row = Int(idx0 / perRow)
+        col = idx0 Mod perRow
+
+        moveX = col * spacingX
+        moveY = row * spacingY
+
+        ' Move each layer safely
+        For L = blockStart To blockEnd
+
+            CAM.ClearSelection
+            CAM.OnlyCurrentLayer=True
+            CAM.OnlyCurrentLayer=False
+            CAM.SelectAll
+            CAM.StepAndRepeatUngroup( 0 )
+            CAM.ClearSelection
+            CAM.OnlyCurrentLayer=True
+
+
+            CAM.ClearSelection
+            CAM.OnlyCurrentLayer = True
+            CAM.CurrentLayer = L
+
+            CAM.SelectEx "New", "Frame", 0, 0, 6000, 6000
+            CAM.MoveSelected moveX, moveY
+
+            CAM.ClearSelection
+
+        Next
+
+        CAM.OnlyCurrentLayer = False
+
+SkipThisZip:
+
+    Next
+
+
+    ' ===================== COLLECT UNIQUE SUFFIXES =====================
+    Dim dictSeen, dictOrder
+    Set dictSeen = CreateObject("Scripting.Dictionary")
+    Set dictOrder = CreateObject("Scripting.Dictionary")
+
+    Dim lname, dashPos, suffix
+    Dim ucount
+    ucount = 0
+
+    For j = 1 To maxLayers
+
+        lname = Trim(CAM.LayerName(j))
+        If lname <> "" Then
+
+            dashPos = InStrRev(lname, "-")
+            If dashPos > 0 Then
+                suffix = Mid(lname, dashPos + 1)
+            Else
+                suffix = lname
+            End If
+
+            suffix = LCase(Trim(suffix))
+
+            If Not dictSeen.Exists(suffix) Then
+                ucount = ucount + 1
+                dictSeen.Add suffix, True
+                dictOrder.Add CStr(ucount), suffix
+            End If
+
+        End If
+
+    Next
+
+
+    ' ===================== REORDER CANONICAL LAYERS =====================
+    Dim targetIndex, foundIndex, currentSuffix
+
+    For targetIndex = 1 To ucount
+
+        currentSuffix = dictOrder(CStr(targetIndex))
+        foundIndex = 0
+
+        For j = 1 To maxLayers
+
+            lname = Trim(CAM.LayerName(j))
+            If lname <> "" Then
+
+                dashPos = InStrRev(lname, "-")
+                If dashPos > 0 Then
+                    suffix = Mid(lname, dashPos + 1)
+                Else
+                    suffix = lname
+                End If
+
+                If LCase(Trim(suffix)) = currentSuffix Then
+                    foundIndex = j
+                    Exit For
+                End If
+
+            End If
+
+        Next
+
+        If foundIndex > 0 Then
+            If foundIndex <> targetIndex Then
+                CAM.LayerMove foundIndex, targetIndex
+            End If
+        End If
+
+    Next
+
+
+    ' ===================== INSERT ONE BLANK LAYER =====================
+    Dim blankPos
+    blankPos = ucount + 1
+
+    If Trim(CAM.LayerName(blankPos)) <> "" Then
+
+        For j = maxLayers To blankPos + 1 Step -1
+            If Trim(CAM.LayerName(j)) = "" Then
+                CAM.LayerMove blankPos, j
+                Exit For
+            End If
+        Next
+
+    End If
+
+
+    ' ===================== MAP B-LAYERS =====================
+    Dim mapSuffix
+    Set mapSuffix = CreateObject("Scripting.Dictionary")
+
+    For j = 1 To ucount
+
+        lname = Trim(CAM.LayerName(j))
+        dashPos = InStrRev(lname, "-")
+
+        If dashPos > 0 Then
+            suffix = Mid(lname, dashPos + 1)
+        Else
+            suffix = lname
+        End If
+
+        If Not mapSuffix.Exists(LCase(Trim(suffix))) Then
+		    mapSuffix.Add LCase(Trim(suffix)), j
+		End If
+
+
+    Next
+
+    For j = 1 To maxLayers
+
+        lname = Trim(CAM.LayerName(j))
+        If lname <> "" Then
+
+            dashPos = InStrRev(lname, "-")
+            If dashPos > 0 Then
+                suffix = Mid(lname, dashPos + 1)
+            Else
+                suffix = lname
+            End If
+
+            suffix = LCase(Trim(suffix))
+
+            If mapSuffix.Exists(suffix) Then
+                CAM.LayerBoardNum(j) = mapSuffix(suffix)
+            End If
+
+        End If
+
+    Next
+
+
+    ' ===================== MERGE =====================
+    CAM.CombineLayersByBoardNumber()
+
+
+    ' ===================== RENAME =====================
+    Dim userPrefix
+    userPrefix = InputBox("Enter prefix for layer names:", "Rename", "ClientX")
+
+    If Trim(userPrefix) <> "" Then
+
+        For j = 1 To maxLayers
+
+            lname = Trim(CAM.LayerName(j))
+            If lname <> "" Then
+
+                dashPos = InStrRev(lname, "-")
+                If dashPos > 0 Then
+                    suffix = Mid(lname, dashPos + 1)
+                Else
+                    suffix = lname
+                End If
+
+                CAM.LayerName(j) = userPrefix & "-" & suffix
+
+            End If
+
+        Next
+
+    End If
+
+
+    ' ===================== CLEANUP =====================
+    For j = ucount + 2 To maxLayers
+        If Trim(CAM.LayerName(j)) <> "" Then
+            CAM.LayerDelete j, "All", False
+            CAM.LayerName(j) = ""
+        End If
+    Next
+
+
+    MsgBox "V6.6 Completed Successfully!" & vbCrLf & _
+           "ZIP files: " & fileCount & vbCrLf & _
+           "Unique layers: " & ucount
+
+End Sub
