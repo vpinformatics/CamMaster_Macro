@@ -1,0 +1,15 @@
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\bin\x86\Debug\CamMasterComTest.dll
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\bin\x86\Debug\Newtonsoft.Json.dll
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\bin\x86\Debug\Newtonsoft.Json.xml
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\obj\x86\Debug\CamMasterComTest.vbproj.AssemblyReference.cache
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\obj\x86\Debug\Interop.CAMMaster.dll
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\obj\x86\Debug\CamMasterComTest.vbproj.ResolveComReference.cache
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\obj\x86\Debug\CamMasterComTest.Resources.resources
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\obj\x86\Debug\CamMasterComTest.vbproj.GenerateResource.cache
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\obj\x86\Debug\CamMasterComTest.vbproj.CoreCompileInputs.cache
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\obj\x86\Debug\CamMasterComTest.vbproj.CopyComplete
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\obj\x86\Debug\CamMasterComTest.dll
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\obj\x86\Debug\CamMasterComTest.xml
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\obj\x86\Debug\CamMasterComTest.pdb
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\bin\x86\Debug\CamMasterComTest.pdb
+D:\Work\CircuitWala\CamMaster_Macro\CamMasterAutomationLibrary\CamMasterComTest\bin\x86\Debug\CamMasterComTest.xml

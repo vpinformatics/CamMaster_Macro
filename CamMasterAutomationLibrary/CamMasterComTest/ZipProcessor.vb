@@ -1,6 +1,8 @@
 ﻿Imports System.Runtime.InteropServices
 Imports System.IO
+'Imports System.Text.Json
 Imports CamMasterComTest.License
+Imports Newtonsoft.Json
 
 
 <ComVisible(True)>
@@ -10,13 +12,22 @@ Imports CamMasterComTest.License
 Public Class ZipProcessor
     Implements IZipProcessor
 
-    Public Sub RunZipMacro(folderPath As String,
-                           perRow As Integer,
-                           spacingX As Integer,
-                           spacingY As Integer) _
+    Private Class PlacementItem
+        Public Property x As Double
+        Public Property y As Double
+        Public Property label As String
+        Public Property file As String
+        Public Property rotation As Double
+    End Class
+
+    Private Class JsonRoot
+        Public Property objects As List(Of PlacementItem)
+    End Class
+
+    Public Sub RunZipMacro(jsonFilePath As String) _
         Implements IZipProcessor.RunZipMacro
 
-        ' 🔒 LICENSE CHECK
+        ' ===================== LICENSE CHECK =====================
         Try
             License.Validate()
         Catch ex As Exception
@@ -24,33 +35,42 @@ Public Class ZipProcessor
             Exit Sub
         End Try
 
-        Dim CAM As Object
-        CAM = CreateObject("CAMMaster.Tool")
-
-        Dim maxLayers As Integer = 255
-
-        ' ===================== LOAD ZIP FILES =====================
-        Dim zipFiles As New Dictionary(Of Integer, String)
-        Dim fileCount As Integer = 0
-
-        For Each f In Directory.GetFiles(folderPath, "*.zip")
-            fileCount += 1
-            zipFiles.Add(fileCount, f)
-        Next
-
-        If fileCount = 0 Then
-            MsgBox("No ZIP files found.")
+        If Not File.Exists(jsonFilePath) Then
+            MsgBox("JSON file not found.")
             Exit Sub
         End If
 
-        ' ===================== IMPORT + GRID MOVE =====================
-        Dim importIndex As Integer = 0
+        Dim jsonText As String = File.ReadAllText(jsonFilePath)
+        'Dim jsonData As JsonRoot =
+        '    JsonSerializer.Deserialize(Of JsonRoot)(jsonText)
 
-        For Each kv In zipFiles
+        Dim jsonData As JsonRoot =
+        JsonConvert.DeserializeObject(Of JsonRoot)(jsonText)
 
-            importIndex += 1
+        If jsonData Is Nothing OrElse jsonData.objects Is Nothing OrElse jsonData.objects.Count = 0 Then
+            MsgBox("No placement objects found in JSON.")
+            Exit Sub
+        End If
 
-            ' Find last used layer before import
+        Dim baseFolder As String = Path.GetDirectoryName(jsonFilePath)
+
+        Dim CAM As Object = CreateObject("CAMMaster.Tool")
+        Dim maxLayers As Integer = 255
+        Dim fileCount As Integer = 0
+
+        ' ===================== IMPORT + PLACE FROM JSON =====================
+        For Each item In jsonData.objects
+
+            Dim zipPath As String = Path.Combine(baseFolder, item.file)
+
+            If Not File.Exists(zipPath) Then
+                MsgBox("ZIP file not found: " & zipPath)
+                Continue For
+            End If
+
+            fileCount += 1
+
+            ' Find last used layer BEFORE import
             Dim beforeMax As Integer = 0
             For j = 1 To maxLayers
                 If Trim(CAM.LayerName(j)) <> "" Then
@@ -59,7 +79,7 @@ Public Class ZipProcessor
             Next
 
             ' Import ZIP
-            CAM.ImportZip("Zip=" & kv.Value)
+            CAM.ImportZip("Zip=" & zipPath)
 
             ' Detect newly added layers
             Dim blockStart As Integer = 0
@@ -76,33 +96,43 @@ Public Class ZipProcessor
 
             If blockStart = 0 Then Continue For
 
-            Dim idx0 As Integer = importIndex - 1
-            Dim row As Integer = idx0 \ perRow
-            Dim col As Integer = idx0 Mod perRow
+            Dim bs = blockStart
 
-            Dim moveX As Integer = col * spacingX
-            Dim moveY As Integer = row * spacingY
+            ' ===================== ROTATE + PLACE (ZIP BLOCK AS ONE UNIT) =====================
 
-            ' Move each layer safely (EXACT COPY)
+            ' 1) Build layer list for this ZIP
+            Dim layerList As New List(Of String)
             For L = blockStart To blockEnd
-
-                CAM.ClearSelection()
-                CAM.OnlyCurrentLayer = True
-                CAM.OnlyCurrentLayer = False
-                CAM.SelectAll()
-                CAM.StepAndRepeatUngroup(0)
-                CAM.ClearSelection()
-
-                CAM.OnlyCurrentLayer = True
-                CAM.CurrentLayer = L
-
-                CAM.SelectEx("New", "Frame", -50, -50, 6000, 6000)
-                CAM.MoveSelected(moveX, moveY)
-                CAM.ClearSelection()
-
+                layerList.Add(L.ToString())
             Next
+            Dim layerCsv As String = String.Join(",", layerList)
 
-            CAM.OnlyCurrentLayer = False
+            ' 2) Select all layers of this ZIP together
+            CAM.ClearSelection()
+            CAM.SelectLayers(layerCsv)
+
+            ' 3) Select all geometry from selected layers
+            CAM.SelectEx("New", "Frame", -100000, -100000, 100000, 100000)
+
+            ' 4) Get bottom-left
+            Dim bl1 = GetBottomLeftFromSelection(CAM)
+
+            ' 5) Move bottom-left to cursor (0,0)
+            CAM.MoveSelected(-bl1.Item1, -bl1.Item2)
+
+            ' 6) Rotate ONCE around cursor
+            If item.rotation <> 0 Then
+                CAM.RotateSelectedEx(item.rotation, 1, "")
+            End If
+
+            ' 7) Recalculate bottom-left after rotation
+            Dim bl2 = GetBottomLeftFromSelection(CAM)
+
+            ' 8) Move entire ZIP block to target (x,y)
+            CAM.MoveSelected(item.x - bl2.Item1, item.y - bl2.Item2)
+
+            CAM.ClearSelection()
+
 
         Next
 
@@ -188,55 +218,68 @@ Public Class ZipProcessor
 
         ' ===================== RENAME =====================
         Dim userPrefix As String = InputBox(
-    "Enter prefix for layer names:",
-    "Rename",
-    "ClientX"
-)
+            "Enter prefix for layer names:",
+            "Rename",
+            "ClientX"
+        )
 
         If userPrefix IsNot Nothing AndAlso userPrefix.Trim() <> "" Then
-
             For j As Integer = 1 To maxLayers
-
                 Dim lname As String = CAM.LayerName(j)
                 If lname IsNot Nothing AndAlso lname.Trim() <> "" Then
-
                     Dim dashPos As Integer = lname.LastIndexOf("-"c)
-                    Dim suffix As String
-
-                    If dashPos >= 0 Then
-                        suffix = lname.Substring(dashPos + 1)
-                    Else
-                        suffix = lname
-                    End If
-
+                    Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
                     CAM.LayerName(j) = userPrefix & "-" & suffix.Trim()
-
                 End If
-
             Next
-
         End If
-
 
         ' ===================== CLEANUP =====================
         For j As Integer = ucount + 2 To maxLayers
-
             Dim lname As String = CAM.LayerName(j)
             If lname IsNot Nothing AndAlso lname.Trim() <> "" Then
                 CAM.LayerDelete(j, "All", False)
                 CAM.LayerName(j) = ""
             End If
-
         Next
 
-
-
-
-
-        MsgBox("ZIP Processing Completed Successfully." & vbCrLf &
-               "ZIP files: " & fileCount & vbCrLf &
-               "Unique layers: " & ucount)
+        MsgBox(
+            "ZIP Processing Completed Successfully." & vbCrLf &
+            "ZIP files: " & fileCount & vbCrLf &
+            "Unique layers: " & ucount
+        )
 
     End Sub
 
+    Private Function GetBottomLeftFromSelection(CAM As Object) As Tuple(Of Double, Double)
+
+        Dim centersText As String = CAM.GetSelectedElementsCenters()
+        Dim lines() As String = centersText.Split({vbCrLf, vbLf}, StringSplitOptions.RemoveEmptyEntries)
+
+        Dim minX As Double = Double.MaxValue
+        Dim minY As Double = Double.MaxValue
+
+        For Each ln As String In lines
+            Dim parts() As String = ln.Trim().Split({" "c, vbTab}, StringSplitOptions.RemoveEmptyEntries)
+            If parts.Length >= 3 Then
+                Dim cx As Double = CDbl(parts(1))
+                Dim cy As Double = CDbl(parts(2))
+                If cx < minX Then minX = cx
+                If cy < minY Then minY = cy
+            End If
+        Next
+
+        If minX = Double.MaxValue Then
+            Return Tuple.Create(0.0, 0.0)
+        End If
+
+        Return Tuple.Create(minX, minY)
+
+    End Function
+
+
 End Class
+
+
+
+
