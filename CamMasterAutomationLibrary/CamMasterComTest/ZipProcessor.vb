@@ -55,6 +55,7 @@ Public Class ZipProcessor
         Dim baseFolder As String = Path.GetDirectoryName(jsonFilePath)
 
         Dim CAM As Object = CreateObject("CAMMaster.Tool")
+        CAM.Units = "mm"
         Dim maxLayers As Integer = 255
         Dim fileCount As Integer = 0
 
@@ -112,7 +113,7 @@ Public Class ZipProcessor
             CAM.SelectLayers(layerCsv)
 
             ' 3) Select all geometry from selected layers
-            CAM.SelectEx("New", "Frame", -100000, -100000, 100000, 100000)
+            CAM.SelectEx("New", "Frame", -7500, -7500, 7500, 7500)
 
             ' 4) Get bottom-left
             Dim bl1 = GetBottomLeftFromSelection(CAM)
