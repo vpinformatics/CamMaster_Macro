@@ -4,7 +4,6 @@ Imports System.IO
 Imports CamMasterComTest.License
 Imports Newtonsoft.Json
 
-
 <ComVisible(True)>
 <Guid("B1C1A9F3-0C59-4E4F-9F29-CC4E63F2E111")>
 <ClassInterface(ClassInterfaceType.None)>
@@ -41,11 +40,9 @@ Public Class ZipProcessor
         End If
 
         Dim jsonText As String = File.ReadAllText(jsonFilePath)
-        'Dim jsonData As JsonRoot =
-        '    JsonSerializer.Deserialize(Of JsonRoot)(jsonText)
 
         Dim jsonData As JsonRoot =
-        JsonConvert.DeserializeObject(Of JsonRoot)(jsonText)
+            JsonConvert.DeserializeObject(Of JsonRoot)(jsonText)
 
         If jsonData Is Nothing OrElse jsonData.objects Is Nothing OrElse jsonData.objects.Count = 0 Then
             MsgBox("No placement objects found in JSON.")
@@ -53,7 +50,6 @@ Public Class ZipProcessor
         End If
 
         Dim baseFolder As String = Path.GetDirectoryName(jsonFilePath)
-
         Dim CAM As Object = CreateObject("CAMMaster.Tool")
         CAM.Units = "mm"
         Dim maxLayers As Integer = 255
@@ -74,9 +70,7 @@ Public Class ZipProcessor
             ' Find last used layer BEFORE import
             Dim beforeMax As Integer = 0
             For j = 1 To maxLayers
-                If Trim(CAM.LayerName(j)) <> "" Then
-                    beforeMax = j
-                End If
+                If Trim(CAM.LayerName(j)) <> "" Then beforeMax = j
             Next
 
             ' Import ZIP
@@ -97,8 +91,6 @@ Public Class ZipProcessor
 
             If blockStart = 0 Then Continue For
 
-            Dim bs = blockStart
-
             ' ===================== ROTATE + PLACE (ZIP BLOCK AS ONE UNIT) =====================
 
             ' 1) Build layer list for this ZIP
@@ -113,7 +105,7 @@ Public Class ZipProcessor
             CAM.SelectLayers(layerCsv)
 
             ' 3) Select all geometry from selected layers
-            CAM.SelectEx("New", "Frame", -7500, -7500, 7500, 7500)
+            CAM.SelectEx("New", "Frame", -100000, -100000, 100000, 100000)
 
             ' 4) Get bottom-left
             Dim bl1 = GetBottomLeftFromSelection(CAM)
@@ -133,8 +125,6 @@ Public Class ZipProcessor
             CAM.MoveSelected(item.x - bl2.Item1, item.y - bl2.Item2)
 
             CAM.ClearSelection()
-
-
         Next
 
         ' ===================== COLLECT UNIQUE SUFFIXES =====================
@@ -225,10 +215,10 @@ Public Class ZipProcessor
         )
 
         If userPrefix IsNot Nothing AndAlso userPrefix.Trim() <> "" Then
-            For j As Integer = 1 To maxLayers
+            For j = 1 To maxLayers
                 Dim lname As String = CAM.LayerName(j)
                 If lname IsNot Nothing AndAlso lname.Trim() <> "" Then
-                    Dim dashPos As Integer = lname.LastIndexOf("-"c)
+                    Dim dashPos = lname.LastIndexOf("-"c)
                     Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
                     CAM.LayerName(j) = userPrefix & "-" & suffix.Trim()
                 End If
@@ -236,7 +226,7 @@ Public Class ZipProcessor
         End If
 
         ' ===================== CLEANUP =====================
-        For j As Integer = ucount + 2 To maxLayers
+        For j = ucount + 2 To maxLayers
             Dim lname As String = CAM.LayerName(j)
             If lname IsNot Nothing AndAlso lname.Trim() <> "" Then
                 CAM.LayerDelete(j, "All", False)
@@ -278,9 +268,4 @@ Public Class ZipProcessor
 
     End Function
 
-
 End Class
-
-
-
-

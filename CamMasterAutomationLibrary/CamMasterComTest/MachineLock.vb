@@ -14,7 +14,7 @@ Public Module MachineLock
 
         Try
             ' 2️⃣ Fallback: default registry (for 32-bit Windows)
-            dim Guid = ReadMachineGuid(RegistryView.Default)
+            Dim Guid = ReadMachineGuid(RegistryView.Default)
             If Guid <> "" Then Return Guid
         Catch ex As Exception
 
