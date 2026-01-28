@@ -168,7 +168,9 @@ Public Class ZipProcessor
             CAM.SelectLayers(layerCsv)
 
             ' 3) Select all geometry from selected layers
+            CAM.OnlyCurrentLayer = False
             CAM.SelectEx("New", "Frame", -100000, -100000, 100000, 100000)
+            CAM.StepAndRepeatUngroup(0)
 
             ' 4) Get bottom-left
             Dim bl1 = GetBottomLeftFromSelection(CAM)
