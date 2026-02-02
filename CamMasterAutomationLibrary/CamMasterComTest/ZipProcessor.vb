@@ -79,12 +79,19 @@ Public Class ZipProcessor
         Dim counter As Integer = 1
         Dim uniqueLayers As Integer = 0
 
+        Dim jsonFile As String = jsonFilePath.Replace(baseFolder, "")
+        jsonFile = jsonFile.Replace("/", "")
+        jsonFile = jsonFile.Replace(".json", "")
+        jsonFile = jsonFile.ToUpper()
+
+
+
+
         ' ===================== RENAME =====================
         Dim userPrefix As String = InputBox(
             "Enter prefix for layer names:",
             "Rename",
-            "ClientX"
-        )
+            jsonFile)
 
         ' ===================== IMPORT + PLACE FROM JSON =====================
         For Each item In jsonData.objects
@@ -313,6 +320,180 @@ Public Class ZipProcessor
 
         Next
 
+
+        ' ===================== Added FRAMES=====================
+        Dim zipPathFrame As String = Path.Combine(baseFolder, "Frame.zip")
+
+        If Not File.Exists(zipPathFrame) Then
+            MsgBox("ZIP file not found: " & zipPathFrame)
+            GoTo EndFrame
+        End If
+
+        ' Find last used layer BEFORE import
+        Dim beforeMaxFrame As Integer = 0
+        For j = 1 To maxLayers
+            If Trim(CAM.LayerName(j)) <> "" Then beforeMaxFrame = j
+        Next
+
+
+        ' Import ZIP
+        CAM.CurrentLayer = uniqueLayers + 3
+        CAM.ImportZip("Zip=" & zipPathFrame)
+
+        ' Detect newly added layers
+        Dim blockStartFrame As Integer = 0
+        Dim blockEndFrame As Integer = 0
+
+        For j = beforeMaxFrame + 1 To maxLayers
+            If Trim(CAM.LayerName(j)) <> "" Then
+                If blockStartFrame = 0 Then blockStartFrame = j
+                blockEndFrame = j
+            Else
+                If blockStartFrame <> 0 Then Exit For
+            End If
+        Next
+
+        If blockStartFrame = 0 Then GoTo EndFrame
+
+
+        ' ===================== ROTATE + PLACE (ZIP BLOCK AS ONE UNIT) =====================
+
+        ' 1) Build layer list for this ZIP
+        Dim layerListFrame As New List(Of String)
+        For L = blockStartFrame To blockEndFrame
+            layerListFrame.Add(L.ToString())
+        Next
+        Dim layerCsvFrane As String = String.Join(",", layerListFrame)
+
+        ' 2) Select all layers of this ZIP together
+        CAM.ClearSelection()
+        CAM.SelectLayers(layerCsvFrane)
+
+        ' 3) Select all geometry from selected layers
+        CAM.OnlyCurrentLayer = False
+            CAM.SelectEx("New", "Frame", -100000, -100000, 100000, 100000)
+            CAM.StepAndRepeatUngroup(0)
+
+
+        CAM.ClearSelection()
+
+
+
+
+            If counter > 1 Then
+                ' ===================== COLLECT UNIQUE SUFFIXES =====================
+                Dim dictSeen As New Dictionary(Of String, Boolean)
+                Dim dictOrder As New Dictionary(Of Integer, String)
+                Dim ucount As Integer = 0
+
+                For j = 1 To maxLayers
+                    Dim lname As String = Trim(CAM.LayerName(j))
+                    If lname <> "" Then
+                        Dim dashPos = lname.LastIndexOf("-"c)
+                        Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
+                        suffix = suffix.ToLower().Trim()
+                        If Not dictSeen.ContainsKey(suffix) Then
+                            ucount += 1
+                            dictSeen.Add(suffix, True)
+                            dictOrder.Add(ucount, suffix)
+                        End If
+                    End If
+                Next
+
+                ' ===================== REORDER CANONICAL LAYERS =====================
+                For targetIndex = 1 To ucount
+                    Dim currentSuffix = dictOrder(targetIndex)
+                    Dim foundIndex As Integer = 0
+
+                    For j = 1 To maxLayers
+                        Dim lname As String = Trim(CAM.LayerName(j))
+                        If lname <> "" Then
+                            Dim dashPos = lname.LastIndexOf("-"c)
+                            Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
+                            If suffix.ToLower().Trim() = currentSuffix Then
+                                foundIndex = j
+                                Exit For
+                            End If
+                        End If
+                    Next
+
+                    If foundIndex > 0 AndAlso foundIndex <> targetIndex Then
+                        CAM.LayerMove(foundIndex, targetIndex)
+                    End If
+                Next
+
+                ' ===================== INSERT ONE BLANK LAYER =====================
+                Dim blankPos As Integer = ucount + 1
+                If Trim(CAM.LayerName(blankPos)) <> "" Then
+                    For j = maxLayers To blankPos + 1 Step -1
+                        If Trim(CAM.LayerName(j)) = "" Then
+                            CAM.LayerMove(blankPos, j)
+                            Exit For
+                        End If
+                    Next
+                End If
+
+                ' ===================== MAP B-LAYERS =====================
+                Dim mapSuffix As New Dictionary(Of String, Integer)
+
+                For j = 1 To ucount
+                    Dim lname As String = Trim(CAM.LayerName(j))
+                    Dim dashPos = lname.LastIndexOf("-"c)
+                    Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
+                    suffix = suffix.ToLower().Trim()
+                    If Not mapSuffix.ContainsKey(suffix) Then
+                        mapSuffix.Add(suffix, j)
+                    End If
+                Next
+
+                For j = 1 To maxLayers
+                    Dim lname As String = Trim(CAM.LayerName(j))
+                    If lname <> "" Then
+                        Dim dashPos = lname.LastIndexOf("-"c)
+                        Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
+                        suffix = suffix.ToLower().Trim()
+                        If mapSuffix.ContainsKey(suffix) Then
+                            CAM.LayerBoardNum(j) = mapSuffix(suffix)
+                        End If
+                    End If
+                Next
+
+                ' ===================== MERGE =====================
+                CAM.CombineLayersByBoardNumber()
+
+                If userPrefix IsNot Nothing AndAlso userPrefix.Trim() <> "" Then
+                    For j = 1 To maxLayers
+                        Dim lname As String = CAM.LayerName(j)
+                        If lname IsNot Nothing AndAlso lname.Trim() <> "" Then
+                            Dim dashPos = lname.LastIndexOf("-"c)
+                            Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
+                            CAM.LayerName(j) = userPrefix & "-" & suffix.Trim()
+                        End If
+                    Next
+                End If
+
+                ' ===================== CLEANUP =====================
+                For j = ucount + 2 To maxLayers
+                    Dim lname As String = CAM.LayerName(j)
+                    If lname IsNot Nothing AndAlso lname.Trim() <> "" Then
+                        CAM.LayerDelete(j, "All", False)
+                        CAM.LayerName(j) = ""
+                    End If
+                Next
+                uniqueLayers = ucount
+
+
+
+
+
+            End If
+
+EndFrame:
+        'Next
+        '===================================================================
+        '===================================================================
+        '===================================================================
+        '===================================================================
         MsgBox("ZIP Processing Completed Successfully." & vbCrLf &
                     "ZIP files: " & fileCount & vbCrLf &
                     "Unique layers: " & uniqueLayers)
