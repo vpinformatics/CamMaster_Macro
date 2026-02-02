@@ -37,6 +37,8 @@ Public Class ZipProcessor
         Public Property label As String
         Public Property file As String
         Public Property rotation As Double
+        Public Property hasOuterBorder As Boolean
+
     End Class
 
     Private Class JsonRoot
@@ -187,8 +189,14 @@ Public Class ZipProcessor
             Dim bl2 = GetBottomLeftFromSelection(CAM)
 
             ' 8) Move entire ZIP block to target (x,y)
-            CAM.MoveSelected(item.x - bl2.Item1, item.y - bl2.Item2)
-
+            Dim penMargin = 0 '0.3048
+            Dim padding = 12
+            Dim outerBorder = 1
+            If item.hasOuterBorder = True Then
+                CAM.MoveSelected(item.x - bl2.Item1 - outerBorder - padding - penMargin, item.y - bl2.Item2 - outerBorder - padding - penMargin)
+            Else
+                CAM.MoveSelected(item.x - bl2.Item1 - padding - penMargin, item.y - bl2.Item2 - padding - penMargin)
+            End If
             CAM.ClearSelection()
 
 
