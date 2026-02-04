@@ -118,7 +118,7 @@ Public Class ZipProcessor
 
 
             ' Import ZIP
-            CAM.CurrentLayer = uniqueLayers + 2
+            CAM.CurrentLayer = uniqueLayers + 12
             CAM.ImportZip("Zip=" & zipPath)
             ' AppActivate("Scan Results")
             'Thread.Sleep(1500)
@@ -337,7 +337,7 @@ Public Class ZipProcessor
 
 
         ' Import ZIP
-        CAM.CurrentLayer = uniqueLayers + 3
+        CAM.CurrentLayer = uniqueLayers + 12
         CAM.ImportZip("Zip=" & zipPathFrame)
 
         ' Detect newly added layers
