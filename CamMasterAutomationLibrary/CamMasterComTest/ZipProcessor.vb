@@ -39,6 +39,10 @@ Public Class ZipProcessor
         Public Property rotation As Double
         Public Property hasOuterBorder As Boolean
 
+
+        Public Property camX As Double
+        Public Property camY As Double
+
     End Class
 
     Private Class JsonRoot
@@ -81,6 +85,7 @@ Public Class ZipProcessor
 
         Dim jsonFile As String = jsonFilePath.Replace(baseFolder, "")
         jsonFile = jsonFile.Replace("/", "")
+        jsonFile = jsonFile.Replace("//", "")
         jsonFile = jsonFile.Replace(".json", "")
         jsonFile = jsonFile.ToUpper()
 
@@ -189,21 +194,24 @@ Public Class ZipProcessor
 
             ' 6) Rotate ONCE around cursor
             If item.rotation <> 0 Then
-                CAM.RotateSelectedEx(item.rotation, 1, "")
+                CAM.RotateSelectedEx(item.rotation, 0, "")
             End If
 
             ' 7) Recalculate bottom-left after rotation
             Dim bl2 = GetBottomLeftFromSelection(CAM)
 
             ' 8) Move entire ZIP block to target (x,y)
-            Dim penMargin = 0 '0.3048
-            Dim padding = 12
-            Dim outerBorder = 1
-            If item.hasOuterBorder = True Then
-                CAM.MoveSelected(item.x - bl2.Item1 - outerBorder - padding - penMargin, item.y - bl2.Item2 - outerBorder - padding - penMargin)
-            Else
-                CAM.MoveSelected(item.x - bl2.Item1 - padding - penMargin, item.y - bl2.Item2 - padding - penMargin)
-            End If
+            Dim penMargin As Decimal = 0 '0.3048
+            Dim padding As Decimal = 12
+            Dim outerBorder As Decimal = 0
+            'Dim outerBorder As Decimal = 0 
+            'If item.hasOuterBorder = True Then
+            '    CAM.MoveSelected(item.camX - bl2.Item1 - outerBorder - padding - penMargin, item.camY - bl2.Item2 - outerBorder - padding - penMargin)
+            'Else
+            '    CAM.MoveSelected(item.camX - bl2.Item1 - padding - penMargin, item.camY - bl2.Item2 - padding - penMargin)
+            'End If
+
+            CAM.MoveSelected(item.camX - bl2.Item1 - padding - penMargin, item.camY - bl2.Item2 - padding - penMargin)
             CAM.ClearSelection()
 
 
