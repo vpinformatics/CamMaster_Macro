@@ -6,7 +6,7 @@ Sub Main()
     jsonPath = InputBox( _
         "Enter JSON file path:", _
         "JSON Placement File", _
-        "C:\temp\Combo\IM5102\IM5102.json" _
+        "C:\temp\Combo\IM5102\IM5102_12.json" _
     )
 
     If jsonPath = "" Then Exit Sub
