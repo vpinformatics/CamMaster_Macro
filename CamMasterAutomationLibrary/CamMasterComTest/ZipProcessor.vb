@@ -31,7 +31,7 @@ End Class
 Public Class ZipProcessor
     Implements IZipProcessor
 
-    Dim DCodeNumber = 10000
+    Dim DCodeNumber = 9999
 
     Private Class PlacementItem
         Public Property x As Double
@@ -52,8 +52,17 @@ Public Class ZipProcessor
     End Class
 
     Private Class JsonRoot
+        Public Property combo_data As ComboData
+    End Class
+
+    Private Class ComboData
         Public Property objects As List(Of PlacementItem)
     End Class
+
+    'Private Class JsonRoot
+
+    '    Public Property objects As List(Of PlacementItem)
+    'End Class
 
     Public Sub RunZipMacro(jsonFilePath As String) _
         Implements IZipProcessor.RunZipMacro
@@ -76,7 +85,7 @@ Public Class ZipProcessor
         Dim jsonData As JsonRoot =
             JsonConvert.DeserializeObject(Of JsonRoot)(jsonText)
 
-        If jsonData Is Nothing OrElse jsonData.objects Is Nothing OrElse jsonData.objects.Count = 0 Then
+        If jsonData Is Nothing OrElse jsonData.combo_data.objects Is Nothing OrElse jsonData.combo_data.objects.Count = 0 Then
             MsgBox("No placement objects found in JSON.")
             Exit Sub
         End If
@@ -128,7 +137,7 @@ Public Class ZipProcessor
         If a = 1 Then
 
             ' ===================== IMPORT + PLACE FROM JSON =====================
-            For Each item In jsonData.objects
+            For Each item In jsonData.combo_data.objects
 
                 Dim zipPath As String = Path.Combine(baseFolder, item.file)
 
@@ -224,21 +233,26 @@ Public Class ZipProcessor
                 ' 8) Move entire ZIP block to target (x,y)
 
                 '============================Old Version Settings=======================
+                'Dim penMargin As Decimal = 0 '0.3048
+                'Dim padding As Decimal = 12
+                'Dim outerBorder As Decimal = 1
+                'If item.hasOuterBorder = True Then
+                '    CAM.MoveSelected(item.x - bl2.Item1 - outerBorder - padding - penMargin, item.y - bl2.Item2 - outerBorder - padding - penMargin)
+                'Else
+                '    CAM.MoveSelected(item.x - bl2.Item1 - padding - penMargin, item.y - bl2.Item2 - padding - penMargin)
+                'End If
+                'CAM.ClearSelection()
+
+                ''============================New Version Settings=======================
                 Dim penMargin As Decimal = 0 '0.3048
                 Dim padding As Decimal = 12
                 Dim outerBorder As Decimal = 1
                 If item.hasOuterBorder = True Then
-                    CAM.MoveSelected(item.x - bl2.Item1 - outerBorder - padding - penMargin, item.y - bl2.Item2 - outerBorder - padding - penMargin)
+                    CAM.MoveSelected(item.camX - bl2.Item1 - outerBorder - padding - penMargin, item.camY - bl2.Item2 - outerBorder - padding - penMargin)
                 Else
-                    CAM.MoveSelected(item.x - bl2.Item1 - padding - penMargin, item.y - bl2.Item2 - padding - penMargin)
+                    CAM.MoveSelected(item.camX - bl2.Item1 - padding - penMargin, item.camY - bl2.Item2 - padding - penMargin)
                 End If
-
-                '============================New Version Settings=======================
-                'Dim penMargin As Decimal = 0 '0.3048
-                'Dim padding As Decimal = 12
-                'Dim outerBorder As Decimal = 0
-                'CAM.MoveSelected(item.camX - bl2.Item1 - padding - penMargin, item.camY - bl2.Item2 - padding - penMargin)
-                'CAM.ClearSelection()
+                CAM.ClearSelection()
 
 
 
