@@ -56,7 +56,18 @@ Public Class ZipProcessor
     End Class
 
     Private Class ComboData
+
+        Public Property info As comboInfo
+
         Public Property objects As List(Of PlacementItem)
+    End Class
+
+    Private Class comboInfo
+        Public Property quantity As Integer
+        'Public Property layers As Double
+        'Public Property comboID As String
+        'Public Property panelWidth As Double
+        'Public Property panelLength As Double
     End Class
 
     'Private Class JsonRoot
@@ -113,14 +124,25 @@ Public Class ZipProcessor
         Dim parts() As String = fileNameOnly.Split(New Char() {"_"c, "-"c}, StringSplitOptions.RemoveEmptyEntries)
 
         Dim comboID As String = ""
-        Dim launchingPanels As Integer = 1   ' ✅ DEFAULT = 1
-
         If parts.Length >= 1 Then
             comboID = parts(0).ToUpper().Trim()
         End If
 
-        If parts.Length >= 2 Then
-            Integer.TryParse(parts(1), launchingPanels)
+        Dim launchingPanels As Integer = 1   ' ✅ DEFAULT = 1
+
+        If (launchingPanels = 1) Then
+            Try
+                launchingPanels = jsonData.combo_data.info.quantity
+            Catch ex As Exception
+                launchingPanels = 1
+            End Try
+        Else
+
+
+
+            If parts.Length >= 2 Then
+                Integer.TryParse(parts(1), launchingPanels)
+            End If
         End If
         Dim jsonFile = comboID
 
@@ -504,129 +526,130 @@ Public Class ZipProcessor
                 'CAM.SetupDCodesDialog()
                 CAM.DCodeShapeAndAngle(DCodeNumber) = "C, Diameter=0.2, Hole=0"
 
+
                 Dim todayDate As String = Date.Now.ToString("dd-MM-yyyy")
-                For j = 1 To maxLayers
+                    For j = 1 To maxLayers
 
-                    'For j = 1 To 20
+                        'For j = 1 To 20
 
-                    Dim lname As String = Trim(CAM.LayerName(j))
-                    'If lname = "" Then Continue For
+                        Dim lname As String = Trim(CAM.LayerName(j))
+                        'If lname = "" Then Continue For
 
-                    ' MsgBox(lname.ToUpper())
-
-
-                    CAM.AllLayersVis("On")
-                    CAM.AllLayersVis("Toggle")
-                    CAM.CurrentLayer = j
-                    CAM.LayerVisible(j) = True
+                        ' MsgBox(lname.ToUpper())
 
 
-                    Select Case lname.ToUpper()
+                        CAM.AllLayersVis("On")
+                        CAM.AllLayersVis("Toggle")
+                        CAM.CurrentLayer = j
+                        CAM.LayerVisible(j) = True
 
-                        Case "FRAME-TOPCKT.274X"
 
-                            InsertLayerTextByIndex(
+                        Select Case lname.ToUpper()
+
+                            Case "FRAME-TOPCKT.274X"
+
+                                InsertLayerTextByIndex(
                     CAM, j,
                     "CIRCUITWALA " & comboID & " TOP CKT DATE : " & todayDate & " QTY : " & launchingPanels,
                     False
                 )
 
-                        Case "FRAME-TOPMASK.274X"
-                            InsertLayerTextByIndex(
+                            Case "FRAME-TOPMASK.274X"
+                                InsertLayerTextByIndex(
                     CAM, j,
                     "CIRCUITWALA " & comboID & " TOP MASK DATE : " & todayDate & " QTY : " & launchingPanels,
                     False
                 )
 
-                        Case "FRAME-TOPSILK.274X"
-                            InsertLayerTextByIndex(
+                            Case "FRAME-TOPSILK.274X"
+                                InsertLayerTextByIndex(
                     CAM, j,
                     "CIRCUITWALA " & comboID & " TOP SILK DATE : " & todayDate & " QTY : " & launchingPanels,
                     False
                 )
 
-                        Case "FRAME-BOTCKT.274X"
-                            InsertLayerTextByIndex(
+                            Case "FRAME-BOTCKT.274X"
+                                InsertLayerTextByIndex(
                     CAM, j,
                     "CIRCUITWALA " & comboID & " BOT CKT DATE : " & todayDate & " QTY : " & launchingPanels,
                     True
                 )
 
-                        Case "FRAME-BOTMASK.274X"
-                            InsertLayerTextByIndex(
+                            Case "FRAME-BOTMASK.274X"
+                                InsertLayerTextByIndex(
                     CAM, j,
                     "CIRCUITWALA " & comboID & " BOT MASK DATE : " & todayDate & " QTY : " & launchingPanels,
                     True
                 )
 
-                        Case "FRAME-BOTSILK.274X"
-                            InsertLayerTextByIndex(
+                            Case "FRAME-BOTSILK.274X"
+                                InsertLayerTextByIndex(
                     CAM, j,
                     "CIRCUITWALA " & comboID & " BOT SILK DATE : " & todayDate & " QTY : " & launchingPanels,
                     True
                 )
 
-                    End Select
+                        End Select
 
-                    CAM.AllLayersVis("On")
+                        CAM.AllLayersVis("On")
 
-                Next
+                    Next
 
 
-                ' ===================== MAP B-LAYERS =====================
-                Dim mapSuffix As New Dictionary(Of String, Integer)
+                    ' ===================== MAP B-LAYERS =====================
+                    Dim mapSuffix As New Dictionary(Of String, Integer)
 
-                For j = 1 To ucount
-                    Dim lname As String = Trim(CAM.LayerName(j))
-                    Dim dashPos = lname.LastIndexOf("-"c)
-                    Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
-                    suffix = suffix.ToLower().Trim()
-                    If Not mapSuffix.ContainsKey(suffix) Then
-                        mapSuffix.Add(suffix, j)
-                    End If
-                Next
-
-                For j = 1 To maxLayers
-                    Dim lname As String = Trim(CAM.LayerName(j))
-                    If lname <> "" Then
+                    For j = 1 To ucount
+                        Dim lname As String = Trim(CAM.LayerName(j))
                         Dim dashPos = lname.LastIndexOf("-"c)
                         Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
                         suffix = suffix.ToLower().Trim()
-                        If mapSuffix.ContainsKey(suffix) Then
-                            CAM.LayerBoardNum(j) = mapSuffix(suffix)
-                        End If
-                    End If
-                Next
-
-
-                ' ===================== MERGE =====================
-                CAM.CombineLayersByBoardNumber()
-
-                If userPrefix IsNot Nothing AndAlso userPrefix.Trim() <> "" Then
-                    For j = 1 To maxLayers
-                        Dim lname As String = CAM.LayerName(j)
-                        If lname IsNot Nothing AndAlso lname.Trim() <> "" Then
-                            Dim dashPos = lname.LastIndexOf("-"c)
-                            Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
-                            CAM.LayerName(j) = userPrefix & "-" & suffix.Trim()
+                        If Not mapSuffix.ContainsKey(suffix) Then
+                            mapSuffix.Add(suffix, j)
                         End If
                     Next
-                End If
+
+                    For j = 1 To maxLayers
+                        Dim lname As String = Trim(CAM.LayerName(j))
+                        If lname <> "" Then
+                            Dim dashPos = lname.LastIndexOf("-"c)
+                            Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
+                            suffix = suffix.ToLower().Trim()
+                            If mapSuffix.ContainsKey(suffix) Then
+                                CAM.LayerBoardNum(j) = mapSuffix(suffix)
+                            End If
+                        End If
+                    Next
 
 
+                    ' ===================== MERGE =====================
+                    CAM.CombineLayersByBoardNumber()
 
-                ' ===================== CLEANUP =====================
-                For j = ucount + 2 To maxLayers
-                    Dim lname As String = CAM.LayerName(j)
-                    If lname IsNot Nothing AndAlso lname.Trim() <> "" Then
-                        CAM.LayerDelete(j, "All", False)
-                        CAM.LayerName(j) = ""
+                    If userPrefix IsNot Nothing AndAlso userPrefix.Trim() <> "" Then
+                        For j = 1 To maxLayers
+                            Dim lname As String = CAM.LayerName(j)
+                            If lname IsNot Nothing AndAlso lname.Trim() <> "" Then
+                                Dim dashPos = lname.LastIndexOf("-"c)
+                                Dim suffix As String = If(dashPos >= 0, lname.Substring(dashPos + 1), lname)
+                                CAM.LayerName(j) = userPrefix & "-" & suffix.Trim()
+                            End If
+                        Next
                     End If
-                Next
-                uniqueLayers = ucount
 
 
-            End If
+
+                    ' ===================== CLEANUP =====================
+                    For j = ucount + 2 To maxLayers
+                        Dim lname As String = CAM.LayerName(j)
+                        If lname IsNot Nothing AndAlso lname.Trim() <> "" Then
+                            CAM.LayerDelete(j, "All", False)
+                            CAM.LayerName(j) = ""
+                        End If
+                    Next
+                    uniqueLayers = ucount
+
+
+                End If
 
 EndFrame:
         End If
